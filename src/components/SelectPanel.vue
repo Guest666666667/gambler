@@ -3,35 +3,54 @@
     <div class="dial-bg" :style="rotateStyle">
       <img :src="prize_img" alt="" />
     </div>
-    <div class="dial-run" @click="run"></div>
+    <div class="dial-run" :style="betStyle" @click="getGameResult"></div>
     <div class="dial-mork-wrap" @touchmove.prevent.stop v-if="isrun"></div>
+    <div class="img">
+      <span>
+        <a-rate class="the-bet" v-model="value" allow-half />
+        <br />
+        <span class="text-1">赌注：{{ value * 20 }}</span>
+        <br />
+        <br />
+        <span class="text-2">资产：{{ accountBalance }}</span>
+        <br />
+        <span class="text-1">欢迎！{{ accountName }}</span>
+      </span>
+    </div>
     <!-- 抽奖进行中，禁用页面所有操作 z-index: 99; -->
   </div>
 </template>
 <script>
 import request from "../api/request.js";
 import prizeImg from "../assets/img/dial.png";
-import { mapState } from "vuex";
+import { mapState, mapMutations } from "vuex";
 export default {
   name: "SelectPanel",
   data() {
     return {
       value: "a",
-      bat: 25,
       prize_img: prizeImg,
       isrun: false,
       rotateAngle: 0, // 旋转角度
       config: {
-        duration: 4000, // 总旋转时间 ms级
+        duration: 4000, // 总旋转时间ms
         circle: 8, // 旋转圈数
-        mode: "ease-in-out", // 由快到慢 惯性效果都省了
+        mode: "ease-in-out",
       },
       cricleAdd: 1, // 第几次抽奖
-      drawIndex: 0, // 中奖索引 转盘图片排序 指针右手开始 0-...
+      drawIndex: 0, // 中奖索引顺时针
+      betStyle: {
+        position: "absolute",
+        width: "10%",
+        height: "10%",
+        top: "0",
+        left: "0",
+      },
+      value: 3,
     };
   },
   computed: {
-    ...mapState(["accoutName"]),
+    ...mapState(["accountName", "accountBalance"]),
     rotateStyle() {
       const _c = this.config;
       return `
@@ -42,52 +61,102 @@ export default {
     },
   },
   created() {},
+  mounted() {
+    let that = this;
+    window.onresize = function () {
+      that.relocate();
+    };
+    that.relocate();
+  },
   methods: {
+    ...mapMutations(["setAccoutBalance"]),
     async run() {
-      if (this.isrun) return;
-      // 可以作为弹窗等信息展示
-      this.$emit("draw_fin", "start");
-      this.isrun = true;
-      this.rotateAngle =
-        this.config.circle * 360 * this.cricleAdd -
-        (22.5 + this.drawIndex * 45);
-      // 圈数位置解析
-      // this.config.circle * 360 * this.cricleAdd 顺时针总圈数/累积总圈数
-      // 22.5 + this.drawIndex * 45 ===> (奖品位置 === this.drawIndex * 45) (指针中间位置 === 22.5)
-
+      let that = this;
+      //如果还在旋转，点击无效
+      if (that.isrun) return;
+      that.isrun = true;
+      //旋转圈数
+      that.rotateAngle =
+        that.config.circle * 360 * that.cricleAdd -
+        (22.5 + that.drawIndex * 45);
+      //计时器
       this.cricleAdd++;
       setTimeout(() => {
-        this.$emit("draw_fin", "fin");
         this.isrun = false;
       }, this.config.duration);
     },
     getGameResult() {
+      //获取游戏结果
       let that = this;
       let params = {
-        name: that.accoutName,
-        bet: that.bat,
+        name: that.accountName,
+        bet: that.value * 20,
       };
-      console.log("->获取游戏结果", params);
+      if (!that.check()) return;
       request
         .getGameResult(params)
         .then((res) => {
-          if (res.status != 200) {
-            return;
+          if (res.data.respCode == 200) {
+            that.changeIndex(res.data.result);
+            that.run();
+            setTimeout(() => {
+              that.changeState(res.data.result, res.data.accountBalance);
+            }, 4000);
           } else {
-            console.log("请求数据data", res.data);
+            that.$message.error("参数错误");
           }
         })
         .catch((err) => {
+          that.$message.error("参数错误");
           console.log(err);
         });
+    },
+    check() {
+      //检验
+      let that = this;
+      if (that.accountName == "未登录") {
+        that.$message.error("请先登录~");
+        return false;
+      }
+      return true;
+    },
+    changeState(result, balance) {
+      //改变结果
+      let that = this;
+      if (result == "win") {
+        that.$message.success("你赢了！");
+      } else {
+        that.$message.warning("你输了！");
+      }
+      that.setAccoutBalance(balance);
+    },
+    changeIndex(result) {
+      //改变旋转圈数
+      let that = this;
+      if (result == "win") {
+        that.drawIndex = Math.floor(Math.random() * 3 + 1) * 2;
+        //0 2 4 6
+      } else {
+        that.drawIndex = Math.floor(Math.random() * 3 + 1) * 2 + 1;
+        //1 3 5 7
+      }
+    },
+    relocate() {
+      //重定位按钮
+      let that = this;
+      that.betStyle.width = document.body.clientWidth / 3 + "px";
+      that.betStyle.height = document.body.clientWidth / 3 + "px";
+      that.betStyle.top = document.body.clientWidth / 3 + "px";
+      that.betStyle.left = document.body.clientWidth / 3 + "px";
     },
   },
 };
 </script>
 <style scoped lang="scss">
 .SelectPanel {
+  background: url("../assets/img/background.png");
   width: 100%;
-  height: 100%;
+  height: 100vh;
   position: relative;
   overflow-y: hidden;
   .dial-bg {
@@ -97,16 +166,9 @@ export default {
     }
   }
   .dial-run {
-    width: 35%;
-    height: 35%;
     background: url("../assets/img/dial-center-icon.png") no-repeat;
     background-size: contain;
     position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    margin: auto;
     text-align: center;
     div {
       font-size: 0.3rem;
@@ -121,6 +183,18 @@ export default {
       font-weight: bold;
       color: #834f36;
       line-height: 0.2rem;
+    }
+  }
+  .img {
+    color: #fff;
+    .the-bet {
+      font-size: 3rem;
+    }
+    .text-1 {
+      font-size: 1rem;
+    }
+    .text-2 {
+      font-size: 2rem;
     }
   }
 }

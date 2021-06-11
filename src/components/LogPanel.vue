@@ -37,28 +37,41 @@ export default {
   computed: {},
   created() {},
   methods: {
-    ...mapMutations(["setAccoutName"]),
+    ...mapMutations(["setAccoutName", "setAccoutBalance"]),
     getUserInfo() {
       let that = this;
       let params = {
         name: that.logName,
         pwd: that.logPassword,
       };
-      that.setAccoutName(that.logName);
-      that.$router.push("/main");
-      console.log("->获取用户信息", params);
+      if (!that.check()) return;
       request
         .getUserInfo(params)
         .then((res) => {
-          if (res.status != 200) {
-            return;
+          if (res.data.respCode == 200) {
+            that.$message.info("登录成功");
+            that.setAccoutName(res.data.name);
+            that.setAccoutBalance(res.data.accountBalance);
+            that.$router.push("/main");
           } else {
-            console.log("请求数据data", res.data);
+            that.$message.error("登陆失败");
           }
         })
         .catch((err) => {
           console.log(err);
         });
+    },
+    check() {
+      let that = this;
+      if ((that.logName == "")) {
+        that.$message.error("账户名不能为空");
+        return false;
+      }
+      if ((that.logPassword == "")) {
+        that.$message.error("密码不能为空");
+        return false;
+      }
+      return true;
     },
   },
 };
