@@ -1,21 +1,22 @@
 <template>
   <div class="LogPanel">
-    <img :src="prize_img" alt="本该有图片的。。" class="image"/>
-        <a-input
-          class="inputType"
-          ref="logNameInput"
-          v-model="logName"
-          placeholder="请输入账户名"
-        ></a-input>
-        <br />
-        <a-input-password
-          class="inputType"
-          ref="logPasswordInput"
-          v-model="logPassword"
-          placeholder="请输入密码"
-        ></a-input-password>
-        <br />
-        <a-button type="primary" @click="getUserInfo()">立即登录</a-button>
+    <img :src="prize_img" alt="本该有图片的。。" class="image" />
+    <br />
+    <a-input
+      class="inputType"
+      ref="logNameInput"
+      v-model="logName"
+      placeholder="请输入账户名"
+    ></a-input>
+    <br />
+    <a-input-password
+      class="inputType"
+      ref="logPasswordInput"
+      v-model="logPassword"
+      placeholder="请输入密码"
+    ></a-input-password>
+    <br />
+    <a-button type="primary" @click="getUserInfo()">立即登录</a-button>
   </div>
 </template>
 <script>
@@ -33,6 +34,15 @@ export default {
   },
   computed: {},
   created() {},
+  mounted() {
+    let that = this;
+    let params = JSON.parse(sessionStorage.getItem("accountInfo"));
+    console.log(params)
+    if (params) {
+      that.logName = params.name;
+      that.logPassword = params.pwd;
+    }
+  },
   methods: {
     ...mapMutations(["setAccoutName", "setAccoutBalance", "setStatus"]),
     getUserInfo() {
@@ -51,7 +61,6 @@ export default {
             that.setAccoutBalance(res.data.accountBalance);
             that.setStatus(true);
             sessionStorage.setItem("accountInfo", JSON.stringify(params));
-            console.log(sessionStorage.getItem("accountInfo"));
             that.$router.push("/main");
           } else {
             that.$message.error("登陆失败");
@@ -81,13 +90,13 @@ export default {
   background: url("../assets/img/background0.png");
   width: 100%;
   height: 100vh;
-  .image{
+  .image {
     margin-bottom: 2rem;
   }
- .inputType {
-      width: 80%;
-      max-width: 400px;
-      margin-bottom: 1rem;
-    }
+  .inputType {
+    width: 80%;
+    max-width: 400px;
+    margin-bottom: 1rem;
+  }
 }
 </style>
