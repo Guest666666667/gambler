@@ -1,11 +1,11 @@
 <template>
   <div class="SelectPanel">
     <div class="dial-bg" :style="rotateStyle">
-      <img :src="prize_img" alt="" />
+      <img :src="prize_img" alt="本该有图片的。。" />
     </div>
     <div class="dial-run" :style="betStyle" @click="getGameResult"></div>
     <div class="dial-mork-wrap" @touchmove.prevent.stop v-if="isrun"></div>
-    <div class="img">
+    <div class="img" v-show="status">
       <span>
         <a-rate class="the-bet" v-model="value" allow-half />
         <br />
@@ -15,6 +15,10 @@
         <span class="text-2">资产：{{ accountBalance }}</span>
         <br />
         <span class="text-1">欢迎！{{ accountName }}</span>
+        <br />
+        <br />
+        <br />
+        <span class="text-1" @click="logOut">退出</span>
       </span>
     </div>
     <!-- 抽奖进行中，禁用页面所有操作 z-index: 99; -->
@@ -50,7 +54,7 @@ export default {
     };
   },
   computed: {
-    ...mapState(["accountName", "accountBalance"]),
+    ...mapState(["accountName", "accountBalance", "status"]),
     rotateStyle() {
       const _c = this.config;
       return `
@@ -66,33 +70,46 @@ export default {
     window.onresize = function () {
       that.relocate();
     };
-    that.relocate();
+    that.reLocate();
+    if (!that.status) {
+      that.reLogin();
+    }
   },
   methods: {
-    ...mapMutations(["setAccoutBalance"]),
-    async run() {
+    ...mapMutations(["setAccoutName", "setAccoutBalance", "setStatus"]),
+    //免登录验证
+    reLogin() {
+      let that = this;
+      let params = JSON.parse(sessionStorage.getItem("accountInfo"));
+      request
+        .getUserInfo(params)
+        .then((res) => {
+          if (res.data.respCode == 200) {
+            that.$message.success("免登录成功");
+            that.setAccoutName(res.data.name);
+            that.setAccoutBalance(res.data.accountBalance);
+            that.setStatus(true);
+          } else {
+            that.$message.info("登录过期");
+            that.returnIndex();
+          }
+        })
+        .catch((err) => {
+          console.log(err);
+          that.$message.error("免登录失败");
+          that.returnIndex();
+        });
+    },
+    //获取游戏结果
+    getGameResult() {
       let that = this;
       //如果还在旋转，点击无效
       if (that.isrun) return;
       that.isrun = true;
-      //旋转圈数
-      that.rotateAngle =
-        that.config.circle * 360 * that.cricleAdd -
-        (22.5 + that.drawIndex * 45);
-      //计时器
-      this.cricleAdd++;
-      setTimeout(() => {
-        this.isrun = false;
-      }, this.config.duration);
-    },
-    getGameResult() {
-      //获取游戏结果
-      let that = this;
       let params = {
         name: that.accountName,
         bet: that.value * 20,
       };
-      if (!that.check()) return;
       request
         .getGameResult(params)
         .then((res) => {
@@ -104,24 +121,30 @@ export default {
             }, 4000);
           } else {
             that.$message.error("参数错误");
+            that.isrun = false;
           }
         })
         .catch((err) => {
           that.$message.error("参数错误");
+          that.isrun = false;
           console.log(err);
         });
     },
-    check() {
-      //检验
+    //旋转轮盘
+    async run() {
       let that = this;
-      if (that.accountName == "未登录") {
-        that.$message.error("请先登录~");
-        return false;
-      }
-      return true;
+      //旋转圈数
+      that.rotateAngle =
+        that.config.circle * 360 * that.cricleAdd -
+        (22.5 + that.drawIndex * 45);
+      //计时器
+      that.cricleAdd++;
+      setTimeout(() => {
+        that.isrun = false;
+      }, that.config.duration);
     },
+    //更新游戏状态
     changeState(result, balance) {
-      //改变结果
       let that = this;
       if (result == "win") {
         that.$message.success("你赢了！");
@@ -130,8 +153,8 @@ export default {
       }
       that.setAccoutBalance(balance);
     },
+    //改变旋转圈数
     changeIndex(result) {
-      //改变旋转圈数
       let that = this;
       if (result == "win") {
         that.drawIndex = Math.floor(Math.random() * 3 + 1) * 2;
@@ -141,13 +164,28 @@ export default {
         //1 3 5 7
       }
     },
-    relocate() {
-      //重定位按钮
+    //重定位按钮
+    reLocate() {
       let that = this;
       that.betStyle.width = document.body.clientWidth / 3 + "px";
       that.betStyle.height = document.body.clientWidth / 3 + "px";
       that.betStyle.top = document.body.clientWidth / 3 + "px";
       that.betStyle.left = document.body.clientWidth / 3 + "px";
+    },
+    //退出登录
+    logOut() {
+      let that = this;
+      that.$message.success("退出成功");
+      that.returnIndex();
+    },
+    //返回主页
+    returnIndex() {
+      let that = this;
+      sessionStorage.removeItem("accountInfo");
+      that.setStatus(false);
+      setTimeout(() => {
+        that.$router.push("/Login");
+      }, 3500);
     },
   },
 };

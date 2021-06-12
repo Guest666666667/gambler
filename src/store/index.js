@@ -6,8 +6,9 @@ Vue.use(Vuex)
 
 export default new Vuex.Store({
   state: {
-    accountName: '未登录',
-    accountBalance: 0,
+    accountName: '',//账户名
+    accountBalance: 0,//账户余额
+    status: false,//登录状态
   },
   mutations: {
     //设置账户名
@@ -15,7 +16,10 @@ export default new Vuex.Store({
       state.accountName = name;
     },
     setAccoutBalance(state, balance) {
-      state.accountBalance = balance
+      state.accountBalance = balance;
+    },
+    setStatus(state, status) {
+      state.status = status
     }
   },
   actions: {
